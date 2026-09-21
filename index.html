@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>日本五日遊 隨身導覽工具盒 🎒</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB7iiTXgq90B0uoJ0jGQYaDC22093fsXii",
+      authDomain: "trip-95aeb.firebaseapp.com",
+      projectId: "trip-95aeb",
+      storageBucket: "trip-95aeb.firebasestorage.app",
+      messagingSenderId: "80376690109",
+      appId: "1:80376690109:web:b6252ceff834eeef9d8ed4",
+      measurementId: "G-SDFPQ8Q0RY"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.db = db;
+    window.doc = doc;
+    window.onSnapshot = onSnapshot;
+    window.setDoc = setDoc;
+  </script>
+
+  <style>
+    :root {
+      --bg-cream: #FFFDF9;
+      --card-bg: #FFFFFF;
+      --pink-main: #FFB7C5;
+      --pink-light: #FFF0F3;
+      --pink-dark: #E87A90;
+      --green-main: #70C1B3;
+      --green-light: #E8F8F5;
+      --green-dark: #2A9D8F;
+      --accent-gold: #E9C46A;
+      --text-dark: #4A4A4A;
+      --text-muted: #8C8C8C;
+      --border-color: #F0E6E8;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --shadow-guide: 0 4px 16px rgba(232, 122, 144, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif; }
+    body { background-color: #F4EBE8; color: var(--text-dark); display: flex; justify-content: center; min-height: 100vh; }
+    
+    .guidebook-container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-cream);
+      min-height: 100vh;
+      position: relative;
+      padding-bottom: 90px;
+      box-shadow: 0 0 25px rgba(0,0,0,0.08);
+      border-left: 5px solid var(--pink-main);
+    }
+
+    .guide-header {
+      background: linear-gradient(135deg, #FFB7C5, #FFD1DC, #A8E6CF);
+      color: #FFF;
+      padding: 16px;
+      border-bottom-left-radius: var(--radius-lg);
+      border-bottom-right-radius: var(--radius-lg);
+      box-shadow: 0 4px 12px rgba(255, 183, 197, 0.4);
+    }
+    .room-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      background: rgba(255,255,255,0.7);
+      padding: 6px 12px;
+      border-radius: 20px;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+    .room-bar i { color: var(--green-dark); }
+    .room-bar span { color: var(--text-dark); font-weight: 700; font-size: 0.8rem; }
+    .room-bar input { border: none; background: transparent; outline: none; font-weight: 700; color: var(--text-dark); flex: 1; font-size: 0.85rem; }
+    .room-btn { background: var(--green-main); color: white; border: none; padding: 4px 12px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+    
+    .header-main { display: flex; justify-content: space-between; align-items: center; }
+    .header-title { font-size: 1.25rem; font-weight: 900; color: #FFF; text-shadow: 1px 1px 3px rgba(232, 122, 144, 0.6); }
+    .status-badge { font-size: 0.72rem; background: rgba(255,255,255,0.5); padding: 3px 8px; border-radius: 10px; color: var(--text-dark); font-weight: 700; }
+
+    .main-nav { display: flex; background: var(--pink-light); margin: 12px 16px 0; border-radius: var(--radius-md); padding: 4px; }
+    .main-nav-btn { flex: 1; padding: 10px 0; border: none; background: transparent; font-size: 0.92rem; font-weight: 700; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: 0.2s; }
+    .main-nav-btn.active { background: var(--green-main); color: #FFF; box-shadow: 0 2px 8px rgba(112, 193, 179, 0.3); }
+
+    .tab-content { display: none; padding: 16px; }
+    .tab-content.active { display: block; }
+
+    .day-selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: none; }
+    .day-selector::-webkit-scrollbar { display: none; }
+    .day-chip { flex: 0 0 auto; padding: 8px 14px; background: #FFF; border-radius: 20px; font-size: 0.82rem; font-weight: 700; border: 2px solid var(--pink-light); cursor: pointer; color: var(--text-muted); }
+    .day-chip.active { background: var(--pink-main); color: #FFF; border-color: var(--pink-main); box-shadow: 0 2px 8px rgba(255, 183, 197, 0.4); }
+
+    .day-info-card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; border: 2px solid var(--pink-light); box-shadow: var(--shadow-guide); }
+    .day-info-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .day-title-text { font-size: 1.15rem; font-weight: 900; color: var(--pink-dark); }
+    .location-badge { background: var(--green-light); color: var(--green-dark); font-weight: 700; padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; }
+    .wear-box { background: var(--pink-light); border-left: 4px solid var(--pink-main); padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; color: #4A4A4A; margin-top: 6px; }
+
+    .spot-card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-guide); border: 1.5px solid var(--green-light); position: relative; }
+    .spot-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .category-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; color: white; display: inline-block; }
+    
+    .cat-食物 { background-color: #FF7675; }
+    .cat-活動 { background-color: #74B9FF; }
+    .cat-購物 { background-color: #FD79A8; }
+    .cat-景點 { background-color: #55E6C1; color: #222; }
+    .cat-酒店 { background-color: #A29BFE; }
+    .cat-交通 { background-color: #FFEAA7; color: #222; }
+
+    .spot-title { font-size: 1.1rem; font-weight: 900; color: var(--text-dark); margin: 6px 0 4px; }
+    .spot-desc { font-size: 0.85rem; color: #666; line-height: 1.45; margin-bottom: 8px; }
+
+    .tags-container { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+    .tag-item { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .tag-eat { background: #FFF3CD; color: #856404; border: 1px solid #FFEBAA; }
+    .tag-buy { background: #F8D7DA; color: #721C24; border: 1px solid #F5C6CB; }
+    .tag-photo { background: #E8F8F5; color: #117A65; border: 1px solid #A3E4D7; }
+
+    .photo-tip-box { background: #FFFDF0; border: 1px dashed var(--accent-gold); padding: 8px 10px; border-radius: 8px; font-size: 0.8rem; color: #7A5C00; margin: 8px 0; display: flex; gap: 6px; align-items: center; }
+
+    .action-bar { display: flex; gap: 8px; margin-top: 10px; justify-content: space-between; align-items: center; }
+    .btn-nav { text-decoration: none; font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; background: #E8F0FE; color: #1A73E8; display: inline-flex; align-items: center; gap: 4px; }
+    .card-actions i { color: var(--text-muted); cursor: pointer; margin-left: 10px; font-size: 0.9rem; }
+    .card-actions i:hover { color: var(--pink-dark); }
+
+    .photo-album { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-top: 4px; }
+    .photo-item { width: 55px; height: 55px; border-radius: 8px; object-fit: cover; }
+    .btn-upload-photo { width: 55px; height: 55px; border-radius: 8px; border: 2px dashed #CCC; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 0.68rem; color: #888; cursor: pointer; flex-shrink: 0; }
+
+    .box-card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow-guide); border: 1.5px solid var(--green-light); }
+    .box-title { font-size: 1rem; font-weight: 900; color: var(--green-dark); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--green-light); padding-bottom: 6px; }
+
+    .packing-sub-title { font-size: 0.85rem; font-weight: 700; color: var(--pink-dark); margin: 10px 0 6px; display: flex; justify-content: space-between; align-items: center; }
+    .packing-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #F0F0F0; font-size: 0.88rem; }
+    .qty-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #DDD; background: #FFF; font-weight: 700; cursor: pointer; display: inline-flex; justify-content: center; align-items: center; font-size: 0.75rem; }
+
+    .emergency-item { display: flex; justify-content: space-between; align-items: center; background: #FFF5F5; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; font-size: 0.85rem; }
+    .flight-card { background: var(--green-light); padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 0.85rem; line-height: 1.5; color: #2D6A4F; }
+
+    .btn-add-primary { background: var(--pink-main); color: white; border: none; width: 100%; padding: 10px; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(255, 183, 197, 0.4); }
+    .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 16px; }
+    .modal-content { background: white; border-radius: var(--radius-lg); width: 100%; max-width: 420px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+    .form-group { margin-bottom: 10px; }
+    .form-group label { font-size: 0.8rem; font-weight: 700; color: #555; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #DDD; border-radius: 8px; font-size: 0.9rem; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="guidebook-container">
+    <header class="guide-header">
+      <div class="room-bar">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>共編代碼:</span>
+        <input type="text" id="room-id-input" value="japan2026" placeholder="輸入代碼">
+        <button class="room-btn" onclick="connectRoom()">連線同步</button>
+      </div>
+      <div class="header-main">
+        <div class="header-title">🌸 日本導覽隨身盒 🍡</div>
+        <div class="status-badge" id="sync-status">🟡 連線中...</div>
+      </div>
+    </header>
+
+    <div class="main-nav">
+      <button class="main-nav-btn active" onclick="switchMainTab('itinerary', event)">📍 每日行程</button>
+      <button class="main-nav-btn" onclick="switchMainTab('prep', event)">🧰 行前準備工具盒</button>
+    </div>
+
+    <div id="itinerary" class="tab-content active">
+      <div class="day-selector" id="day-selector-container"></div>
+      <div id="day-info-card" class="day-info-card"></div>
+      
+      <button class="btn-add-primary" onclick="openSpotModal()">+ 新增景點卡片</button>
+
+      <div id="spots-list"></div>
+    </div>
+
+    <div id="prep" class="tab-content">
+      <div class="box-card">
+        <div class="box-title"><i class="fa-solid fa-suitcase-rolling"></i> (1) 行李打包清單</div>
+        
+        <div class="packing-sub-title">
+          <span>🎒 隨身背包</span>
+          <button style="border:none; background:none; color:var(--pink-dark); font-weight:700; cursor:pointer;" onclick="addPackingItem('bag')">+新增</button>
+        </div>
+        <div id="packing-bag-list"></div>
+
+        <div class="packing-sub-title">
+          <span>💼 手提行李 (機艙)</span>
+          <button style="border:none; background:none; color:var(--pink-dark); font-weight:700; cursor:pointer;" onclick="addPackingItem('cabin')">+新增</button>
+        </div>
+        <div id="packing-cabin-list"></div>
+
+        <div class="packing-sub-title">
+          <span>🧳 托運行李</span>
+          <button style="border:none; background:none; color:var(--pink-dark); font-weight:700; cursor:pointer;" onclick="addPackingItem('checked')">+新增</button>
+        </div>
+        <div id="packing-checked-list"></div>
+
+        <hr style="margin:16px 0 10px; border:none; border-top:1px dashed #DDD;">
+
+        <div class="packing-sub-title">
+          <span>🛍️ 日本購物清單</span>
+          <button style="border:none; background:none; color:var(--pink-dark); font-weight:700; cursor:pointer;" onclick="addShoppingItem()">+新增買物</button>
+        </div>
+        <div id="shopping-list"></div>
+      </div>
+
+      <div class="box-card">
+        <div class="box-title"><i class="fa-solid fa-circle-exclamation"></i> (2) 日本旅遊規範提醒</div>
+        <ul style="padding-left:18px; font-size:0.85rem; line-height:1.6; color:#444;">
+          <li><b>電車禮儀：</b>搭乘電車請將手機改為靜音模式，切勿在大眾運輸工具上通話。</li>
+          <li><b>垃圾分類：</b>路上極少垃圾桶，請隨身攜帶小塑膠袋，並於瓶罐回收桶分類投遞。</li>
+          <li><b>結帳習慣：</b>付款時請將現金或信用卡放置於專用小盤子上，避免直接遞交給店員。</li>
+          <li><b>行人步行：</b>切勿邊走邊吃，請在店家指定區域或定點食用完畢。</li>
+        </ul>
+      </div>
+
+      <div class="box-card">
+        <div class="box-title"><i class="fa-solid fa-kit-medical"></i> (3) 緊急聯絡資訊</div>
+        <div class="emergency-item">
+          <span><b>當地警察：</b>撥打 110</span>
+          <a href="tel:110" style="color:#C0392B; font-weight:700;"><i class="fa-solid fa-phone"></i> 撥打</a>
+        </div>
+        <div class="emergency-item">
+          <span><b>消防救護：</b>撥打 119</span>
+          <a href="tel:119" style="color:#C0392B; font-weight:700;"><i class="fa-solid fa-phone"></i> 撥打</a>
+        </div>
+        <div style="background:#FFF0F3; padding:10px; border-radius:8px; font-size:0.82rem; line-height:1.5; border:1px solid #FFD1DC; margin-top:6px;">
+          <div style="font-weight:700; color:var(--pink-dark); margin-bottom:2px;">駐日台北經濟文化代表處 (東京)</div>
+          <div>📍 地址：東京都港區白金台5-20-2</div>
+          <div>📞 急難救助電話：+81-3-3280-7911</div>
+        </div>
+      </div>
+
+      <div class="box-card">
+        <div class="box-title"><i class="fa-solid fa-folder-open"></i> (4) 資料總匯</div>
+        
+        <div style="font-weight:700; font-size:0.88rem; margin-bottom:6px; color:var(--text-dark);">✈️ 航班資訊</div>
+        <div class="flight-card">
+          <div><b>🛫 去程 (9/25)：</b>台中 (RMQ) 17:05 ➔ 名古屋 (NGO) 20:55</div>
+        </div>
+        <div class="flight-card">
+          <div><b>🛬 回程 (9/29)：</b>東京成田/羽田 (TYO) 13:30 ➔ 高雄 (KHH) 16:40</div>
+        </div>
+
+        <div style="font-weight:700; font-size:0.88rem; margin:12px 0 6px; color:var(--text-dark);">🏨 飯店住宿總覽</div>
+        <div style="font-size:0.82rem; line-height:1.6; color:#444;">
+          <div style="margin-bottom:4px;">• <b>9/25：</b>Vessel Hotel Campana Nagoya (名古屋)</div>
+          <div style="margin-bottom:4px;">• <b>9/26-27：</b>ZAITO Tokyo Narihira Hotel (東京)</div>
+          <div>• <b>9/28：</b>HOTEL METS PREMIER (東京)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="spot-modal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom:12px; color:var(--pink-dark);" id="modal-title">新增景點卡片</h3>
+      <input type="hidden" id="edit-spot-id">
+      <div class="form-group">
+        <label>景點名稱</label>
+        <input type="text" id="m-name" placeholder="例如: 北一硝子三號館">
+      </div>
+      <div class="form-group">
+        <label>分類</label>
+        <select id="m-category">
+          <option value="食物">食物 🍕</option>
+          <option value="活動">活動 ⛷️</option>
+          <option value="購物">購物 🛍️</option>
+          <option value="景點" selected>景點 📍</option>
+          <option value="酒店">酒店 🏨</option>
+          <option value="交通">交通 ✈️</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>景點描述 / 備註</label>
+        <textarea id="m-desc" rows="2" placeholder="詳細介紹或備註..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>特色標籤 (多選請用逗號隔開)</label>
+        <input type="text" id="m-tags" placeholder="例如: 必吃:拉麵, 必買:藥妝, 必拍:夜景">
+      </div>
+      <div class="form-group">
+        <label>拍照小技巧</label>
+        <input type="text" id="m-photo-tip" placeholder="例如: 必拍煤油燈，復古氣氛佳">
+      </div>
+      <button class="btn-add-primary" style="margin-top:10px;" onclick="saveSpot()">儲存景點</button>
+      <button onclick="closeSpotModal()" style="width:100%; background:#EEE; border:none; padding:8px; border-radius:8px;">取消</button>
+    </div>
+  </div>
+
+  <script>
+    let currentRoom = "japan2026";
+    let unsubscribe = null;
+    let currentDayIndex = 0;
+
+    let appData = {
+      days: [
+        {
+          date: "9/25 (三)",
+          location: "台中 - 名古屋",
+          wearTip: "輕便薄外套 + 舒適步行鞋（搭機與晚間抵達防微風）",
+          hotel: "Vessel Hotel Campana Nagoya",
+          spots: [
+            { id: 101, category: "交通", name: "台中機場搭機", desc: "17:05 起飛前往名古屋", tags: [], photoTip: "", photos: [] },
+            { id: 102, category: "酒店", name: "Vessel Hotel Campana Nagoya", desc: "辦理入住，飯店備有大浴場可放鬆。", tags: ["必拍:大飯店大廳"], photoTip: "大廳整體設計很有質感", photos: [] }
+          ]
+        },
+        {
+          date: "9/26 (四)",
+          location: "名古屋 - 東京",
+          wearTip: "舒適洋蔥式穿法（新幹線移動與東京市區散步）",
+          hotel: "ZAITO Tokyo Narihira Hotel",
+          spots: [
+            { id: 201, category: "交通", name: "搭乘新幹線前往東京", desc: "名古屋站 ➔ 東京站", tags: ["必吃:新幹線便當"], photoTip: "車窗外若晴朗可拍富士山", photos: [] },
+            { id: 202, category: "酒店", name: "ZAITO Tokyo Narihira Hotel", desc: "押上/業平區域，鄰近東京晴空塔", tags: [], photoTip: "", photos: [] }
+          ]
+        },
+        {
+          date: "9/27 (五)",
+          location: "東京自由行",
+          wearTip: "流行休閒穿搭 + 方便走路的鞋",
+          hotel: "ZAITO Tokyo Narihira Hotel",
+          spots: []
+        },
+        {
+          date: "9/28 (六)",
+          location: "東京自由行",
+          wearTip: "休閒便服 + 保暖外套",
+          hotel: "HOTEL METS PREMIER",
+          spots: [
+            { id: 401, category: "酒店", name: "HOTEL METS PREMIER", desc: "入住精緻飯店，享受東京最後一夜", tags: [], photoTip: "", photos: [] }
+          ]
+        },
+        {
+          date: "9/29 (日)",
+          location: "東京 - 高雄",
+          wearTip: "舒適搭機服裝",
+          hotel: "返家",
+          spots: [
+            { id: 501, category: "交通", name: "前往東京機場", desc: "搭乘 13:30 航班返回高雄 (16:40抵達)", tags: ["必買:機場伴手禮"], photoTip: "", photos: [] }
+          ]
+        }
+      ],
+      packing: {
+        bag: [
+          { id: 1, text: "護照 & 身份證件", qty: 1, checked: true },
+          { id: 2, text: "日幣現金 & 信用卡", qty: 1, checked: true },
+          { id: 3, text: "手機 & 行動電源", qty: 1, checked: false }
+        ],
+        cabin: [
+          { id: 4, text: "換洗衣物備份", qty: 1, checked: false },
+          { id: 5, text: "耳機 & 平板", qty: 1, checked: false }
+        ],
+        checked: [
+          { id: 6, text: "換洗衣物與外套", qty: 5, checked: false },
+          { id: 7, text: "個人保養與盥洗用品", qty: 1, checked: false },
+          { id: 8, text: "變壓器與充電線材", qty: 1, checked: false }
+        ]
+      },
+      shopping: [
+        { id: 1, text: "合利他命 EX Plus", checked: false },
+        { id: 2, text: "東京芭娜娜 / 伴手禮", checked: false }
+      ]
+    };
+
+    function connectRoom() {
+      const roomInput = document.getElementById('room-id-input').value.trim();
+      if (!roomInput) return alert("請輸入共編代碼！");
+      currentRoom = roomInput;
+      
+      document.getElementById('sync-status').innerText = "🟡 連線中...";
+      if (unsubscribe) unsubscribe();
+
+      const roomRef = window.doc(window.db, "trips", currentRoom);
+      unsubscribe = window.onSnapshot(roomRef, (docSnap) => {
+        if (docSnap.exists()) {
+          appData = docSnap.data();
+          renderAll();
+          document.getElementById('sync-status').innerText = "🟢 即時同步中";
+        } else {
+          pushToFirebase();
+        }
+      });
+    }
+
+    function pushToFirebase() {
+      if (!window.db) return;
+      const roomRef = window.doc(window.db, "trips", currentRoom);
+      window.setDoc(roomRef, appData);
+    }
+
+    function renderAll() {
+      renderDaySelector();
+      renderDayInfo();
+      renderSpots();
+      renderPacking();
+      renderShopping();
+    }
+
+    function switchMainTab(tabId, evt) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.main-nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      if (evt && evt.target) evt.target.classList.add('active');
+    }
+
+    function renderDaySelector() {
+      const container = document.getElementById('day-selector-container');
+      container.innerHTML = '';
+      appData.days.forEach((day, idx) => {
+        const chip = document.createElement('div');
+        chip.className = `day-chip ${idx === currentDayIndex ? 'active' : ''}`;
+        chip.innerText = `Day ${idx + 1}`;
+        chip.onclick = () => { currentDayIndex = idx; renderAll(); };
+        container.appendChild(chip);
+      });
+    }
+
+    function renderDayInfo() {
+      const day = appData.days[currentDayIndex];
+      const card = document.getElementById('day-info-card');
+      card.innerHTML = `
+        <div class="day-info-header">
+          <div class="day-title-text">${day.date}</div>
+          <div class="location-badge"><i class="fa-solid fa-location-dot"></i> ${day.location}</div>
+        </div>
+        <div style="font-size:0.83rem; color:#666; margin-bottom:4px;"><b>🏨 住宿：</b>${day.hotel}</div>
+        <div class="wear-box">
+          <i class="fa-solid fa-shirt" style="color:var(--pink-dark);"></i> <b>建議穿著：</b>${day.wearTip}
+        </div>
+      `;
+    }
+
+    function renderSpots() {
+      const container = document.getElementById('spots-list');
+      container.innerHTML = '';
+      const spots = appData.days[currentDayIndex].spots || [];
+
+      if (spots.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">今日尚無景點，點擊上方按鈕新增！</div>';
+        return;
+      }
+
+      spots.forEach((spot) => {
+        let tagsHTML = '';
+        if (spot.tags && spot.tags.length > 0) {
+          tagsHTML = '<div class="tags-container">' + spot.tags.map(tag => {
+            let styleClass = 'tag-eat';
+            if (tag.includes('買')) styleClass = 'tag-buy';
+            if (tag.includes('拍')) styleClass = 'tag-photo';
+            return `<span class="tag-item ${styleClass}">${tag}</span>`;
+          }).join('') + '</div>';
+        }
+
+        let photoTipHTML = spot.photoTip ? `<div class="photo-tip-box"><i class="fa-solid fa-camera"></i> <span><b>拍照小技巧：</b>${spot.photoTip}</span></div>` : '';
+
+        const photosList = spot.photos || [];
+        let photosHTML = `
+          <div class="photo-album">
+            ${photosList.map(p => `<img src="${p}" class="photo-item">`).join('')}
+            <label class="btn-upload-photo">
+              <i class="fa-solid fa-plus"></i>照片
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadPhoto(event, ${spot.id})">
+            </label>
+          </div>
+        `;
+
+        const encodedName = encodeURIComponent(spot.name);
+        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodedName}`;
+
+        const card = document.createElement('div');
+        card.className = 'spot-card';
+        card.innerHTML = `
+          <div class="spot-header">
+            <span class="category-badge cat-${spot.category}">${spot.category}</span>
+            <div class="card-actions">
+              <i class="fa-solid fa-pen-to-square" onclick="editSpot(${spot.id})"></i>
+              <i class="fa-solid fa-trash" onclick="deleteSpot(${spot.id})"></i>
+            </div>
+          </div>
+          <div class="spot-title">${spot.name}</div>
+          <div class="spot-desc">${spot.desc || ''}</div>
+          ${tagsHTML}
+          ${photoTipHTML}
+          
+          <div class="action-bar">
+            <a href="${mapUrl}" target="_blank" class="btn-nav"><i class="fa-solid fa-compass"></i> Google 地圖導航</a>
+          </div>
+
+          ${photosHTML}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function openSpotModal() {
+      document.getElementById('edit-spot-id').value = '';
+      document.getElementById('modal-title').innerText = '新增景點卡片';
+      document.getElementById('m-name').value = '';
+      document.getElementById('m-desc').value = '';
+      document.getElementById('m-tags').value = '';
+      document.getElementById('m-photo-tip').value = '';
+      document.getElementById('spot-modal').style.display = 'flex';
+    }
+
+    function closeSpotModal() { document.getElementById('spot-modal').style.display = 'none'; }
+
+    function editSpot(spotId) {
+      const spot = appData.days[currentDayIndex].spots.find(s => s.id === spotId);
+      if (!spot) return;
+
+      document.getElementById('edit-spot-id').value = spot.id;
+      document.getElementById('modal-title').innerText = '編輯景點卡片';
+      document.getElementById('m-name').value = spot.name;
+      document.getElementById('m-category').value = spot.category;
+      document.getElementById('m-desc').value = spot.desc || '';
+      document.getElementById('m-tags').value = spot.tags ? spot.tags.join(', ') : '';
+      document.getElementById('m-photo-tip').value = spot.photoTip || '';
+      document.getElementById('spot-modal').style.display = 'flex';
+    }
+
+    function saveSpot() {
+      const editId = document.getElementById('edit-spot-id').value;
+      const name = document.getElementById('m-name').value.trim();
+      const category = document.getElementById('m-category').value;
+      const desc = document.getElementById('m-desc').value.trim();
+      const tagsStr = document.getElementById('m-tags').value.trim();
+      const photoTip = document.getElementById('m-photo-tip').value.trim();
+
+      if (!name) return alert("請輸入景點名稱！");
+      const tags = tagsStr ? tagsStr.split(/[,，]/).map(t => t.trim()) : [];
+
+      if (editId) {
+        const spot = appData.days[currentDayIndex].spots.find(s => s.id == editId);
+        if (spot) {
+          spot.name = name;
+          spot.category = category;
+          spot.desc = desc;
+          spot.tags = tags;
+          spot.photoTip = photoTip;
+        }
+      } else {
+        appData.days[currentDayIndex].spots.push({
+          id: Date.now(),
+          name, category, desc, tags, photoTip, photos: []
+        });
+      }
+
+      pushToFirebase();
+      closeSpotModal();
+    }
+
+    function deleteSpot(spotId) {
+      if (!confirm("確定要刪除此景點卡片？")) return;
+      appData.days[currentDayIndex].spots = appData.days[currentDayIndex].spots.filter(s => s.id !== spotId);
+      pushToFirebase();
+    }
+
+    function uploadPhoto(event, spotId) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const spot = appData.days[currentDayIndex].spots.find(s => s.id === spotId);
+        if (spot) {
+          if (!spot.photos) spot.photos = [];
+          spot.photos.push(e.target.result);
+          pushToFirebase();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderPacking() {
+      ['bag', 'cabin', 'checked'].forEach(type => {
+        const container = document.getElementById(`packing-${type}-list`);
+        container.innerHTML = '';
+        const list = appData.packing[type] || [];
+
+        list.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'packing-item';
+          div.innerHTML = `
+            <span style="${item.checked ? 'text-decoration:line-through; color:#AAA;' : ''}">
+              <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="togglePacking('${type}', ${item.id})"> ${item.text}
+            </span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="qty-btn" onclick="changePackingQty('${type}', ${item.id}, -1)">-</button>
+              <span style="font-weight:700; font-size:0.8rem;">${item.qty}</span>
+              <button class="qty-btn" onclick="changePackingQty('${type}', ${item.id}, 1)">+</button>
+              <i class="fa-solid fa-xmark" style="color:#CCC; cursor:pointer; margin-left:6px;" onclick="deletePacking('${type}', ${item.id})"></i>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      });
+    }
+
+    function addPackingItem(type) {
+      const text = prompt("請輸入新增的行李項目名稱:");
+      if (!text) return;
+      if (!appData.packing[type]) appData.packing[type] = [];
+      appData.packing[type].push({ id: Date.now(), text, qty: 1, checked: false });
+      pushToFirebase();
+    }
+
+    function togglePacking(type, id) {
+      const item = appData.packing[type].find(i => i.id === id);
+      if (item) item.checked = !item.checked;
+      pushToFirebase();
+    }
+
+    function changePackingQty(type, id, delta) {
+      const item = appData.packing[type].find(i => i.id === id);
+      if (item) {
+        item.qty = Math.max(1, item.qty + delta);
+        pushToFirebase();
+      }
+    }
+
+    function deletePacking(type, id) {
+      appData.packing[type] = appData.packing[type].filter(i => i.id !== id);
+      pushToFirebase();
+    }
+
+    function renderShopping() {
+      const container = document.getElementById('shopping-list');
+      container.innerHTML = '';
+      (appData.shopping || []).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'packing-item';
+        div.innerHTML = `
+          <span style="${item.checked ? 'text-decoration:line-through; color:#AAA;' : ''}">
+            <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleShopping(${item.id})"> ${item.text}
+          </span>
+          <i class="fa-solid fa-xmark" style="color:#CCC; cursor:pointer;" onclick="deleteShopping(${item.id})"></i>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addShoppingItem() {
+      const text = prompt("請輸入想購買的商品名稱:");
+      if (!text) return;
+      if (!appData.shopping) appData.shopping = [];
+      appData.shopping.push({ id: Date.now(), text, checked: false });
+      pushToFirebase();
+    }
+
+    function toggleShopping(id) {
+      const item = appData.shopping.find(i => i.id === id);
+      if (item) item.checked = !item.checked;
+      pushToFirebase();
+    }
+
+    function deleteShopping(id) {
+      appData.shopping = appData.shopping.filter(i => i.id !== id);
+      pushToFirebase();
+    }
+
+    window.onload = function() {
+      setTimeout(() => { connectRoom(); }, 600);
+    };
+  </script>
+</body>
+</html>
